@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Users, Upload, Trash2, DollarSign, Plus, Edit2, Search, Download, UserPlus, X, ShieldCheck, User } from 'lucide-react';
+import { Package, Users, Upload, Trash2, DollarSign, Plus, Edit2, Search, Download, UserPlus, X, ShieldCheck, User, LogOut, LayoutDashboard } from 'lucide-react';
+import SupervisorRegistration from './SupervisorRegistration';
+import EquipmentDelivery from './EquipmentDelivery';
+import SupervisorInventoryView from './SupervisorInventoryView';
+import ZoneInventoryView from './ZoneInventoryView';
+import EquipmentReturn from './EquipmentReturn';
+import OrdersView from './OrdersView';
+import EquipmentExchangeView from './EquipmentExchangeView';
+import DeductionsView from './DeductionsView';
+import ApartmentsView from './ApartmentsView';
+import MotorcyclesView from './MotorcyclesView';
+import IncentivesView from './IncentivesView';
+import AuditLogView from './AuditLogView';
+import GoogleSheetsDiagnostic from './GoogleSheetsDiagnostic';
 
-// EquipmentManagementSystem
-// Features:
-// - Supervisors CRUD
-// - Riders CRUD + photo upload
-// - Inventory management (main and supervisor inventories)
-// - Deductions per rider
-// - CSV upload for bulk riders
-// - Export/Import simple JSON/CSV
-// - LocalStorage persistence
-
+// EquipmentManagementSystem - مع دعم الصلاحيات والمستخدم
 const STORAGE_KEYS = {
   SUPERVISORS: 'ems_supervisors_v1',
   RIDERS: 'ems_riders_v1',
@@ -24,8 +28,37 @@ const defaultInventory = {
   tshirts: 300
 };
 
-const EquipmentManagementSystem = () => {
-  const [language, setLanguage] = useState('ar');
+// ربط أقسام الواجهة بوحدات الصلاحيات
+const SECTION_PERMISSION = {
+  overview: null,
+  supervisors: 'إدارة المشرفين والمناديب',
+  riders: 'إدارة المشرفين والمناديب',
+  equipmentDelivery: 'تسليم المعدات',
+  equipmentReturn: 'استرداد المعدات',
+  equipmentExchange: 'تبديل الصناديق',
+  supervisorInventory: 'مخزون المشرف',
+  inventory: 'المخزون الرئيسي',
+  zoneInventory: 'مخزون الزونات',
+  orders: 'الطلبيات',
+  deductions: 'إدارة الخصومات',
+  apartments: 'إدارة الشقق',
+  motorcycles: 'إدارة الموتوسيكلات',
+  incentives: 'الحوافز',
+  auditLog: 'سجل التغييرات والأنشطة',
+  'permissions': 'إدارة الصلاحيات',
+};
+
+const canView = (user, section) => {
+  if (!user?.permissions) return true;
+  const mod = SECTION_PERMISSION[section];
+  if (!mod) return true;
+  const modules = user.permissions.modules || user.permissions?.modules;
+  if (!modules || !modules[mod]) return false;
+  return !!modules[mod].view;
+};
+
+
+const EquipmentManagementSystem = ({ user, onLogout }) => {
   const [activeSection, setActiveSection] = useState('overview');
 
   const [supervisors, setSupervisors] = useState([]);
@@ -42,6 +75,14 @@ const EquipmentManagementSystem = () => {
   // UI helpers
   const [search, setSearch] = useState('');
   const [selectedRiderForPhoto, setSelectedRiderForPhoto] = useState(null);
+  const [apiSupervisorsCount, setApiSupervisorsCount] = useState(0);
+
+  // إعادة التوجيه للوحة التحكم إذا لم تكن هناك صلاحية للقسم الحالي
+  useEffect(() => {
+    if (user && activeSection !== 'overview' && !canView(user, activeSection)) {
+      setActiveSection('overview');
+    }
+  }, [user, activeSection]);
 
   // Load from localStorage
   useEffect(() => {
@@ -169,17 +210,43 @@ const EquipmentManagementSystem = () => {
   // Quick search
   const filteredRiders = riders.filter(r => !search || r.name.includes(search) || r.code.includes(search) || r.region.includes(search));
 
+  const showPermissions = user?.role === 'admin' && canView(user, 'permissions');
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-slate-50">
+      {/* شريط علوي: المستخدم وتسجيل الخروج */}
+      <header className="bg-white border-b border-slate-200 px-4 py-3 flex justify-between items-center">
+        <h1 className="text-lg font-bold text-slate-800">نظام إدارة مخزون معدات طلبات - وكالة 007</h1>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-slate-600">{user?.display_name || user?.username}</span>
+          <span className="text-xs text-slate-400">({user?.role === 'admin' ? 'المسؤول' : user?.role === 'warehouse_manager' ? 'مدير المخازن' : user?.role === 'accounts_manager' ? 'مدير الحسابات' : 'مشرف'})</span>
+          <button onClick={onLogout} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-red-100 text-slate-700 hover:text-red-700 text-sm">
+            <LogOut className="w-4 h-4" /> خروج
+          </button>
+        </div>
+      </header>
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6">
         <aside className="md:col-span-1 bg-white p-4 rounded-lg shadow-sm">
-          <h3 className="font-bold mb-4">النظام</h3>
+          <h3 className="font-bold mb-4">القائمة</h3>
           <div className="space-y-2">
             <button onClick={() => setActiveSection('overview')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='overview'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>لوحة التحكم</button>
-            <button onClick={() => setActiveSection('supervisors')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='supervisors'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>المشرفين</button>
-            <button onClick={() => setActiveSection('riders')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='riders'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>المناديب</button>
-            <button onClick={() => setActiveSection('inventory')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='inventory'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>المخزون</button>
-            <button onClick={() => setActiveSection('orders')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='orders'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>الطلبات</button>
+            {canView(user, 'supervisors') && <button onClick={() => setActiveSection('supervisors')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='supervisors'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>المشرفين</button>}
+            {canView(user, 'riders') && <button onClick={() => setActiveSection('riders')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='riders'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>المناديب</button>}
+            {canView(user, 'equipmentDelivery') && <button onClick={() => setActiveSection('equipmentDelivery')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='equipmentDelivery'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>تسليم المعدات</button>}
+            {canView(user, 'equipmentReturn') && <button onClick={() => setActiveSection('equipmentReturn')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='equipmentReturn'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>استرداد المعدات</button>}
+            {canView(user, 'equipmentExchange') && <button onClick={() => setActiveSection('equipmentExchange')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='equipmentExchange'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>تبديل الصناديق</button>}
+            {canView(user, 'supervisorInventory') && <button onClick={() => setActiveSection('supervisorInventory')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='supervisorInventory'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>مخزون المشرف</button>}
+            {canView(user, 'inventory') && <button onClick={() => setActiveSection('inventory')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='inventory'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>المخزون الرئيسي</button>}
+            {canView(user, 'zoneInventory') && <button onClick={() => setActiveSection('zoneInventory')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='zoneInventory'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>مخزون الزونات</button>}
+            {canView(user, 'orders') && <button onClick={() => setActiveSection('orders')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='orders'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>الطلبات</button>}
+            {canView(user, 'deductions') && <button onClick={() => setActiveSection('deductions')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='deductions'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>الخصومات</button>}
+            {canView(user, 'apartments') && <button onClick={() => setActiveSection('apartments')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='apartments'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>الشقق</button>}
+            {canView(user, 'motorcycles') && <button onClick={() => setActiveSection('motorcycles')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='motorcycles'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>الموتوسيكلات</button>}
+            {canView(user, 'incentives') && <button onClick={() => setActiveSection('incentives')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='incentives'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>الحوافز</button>}
+            {canView(user, 'auditLog') && <button onClick={() => setActiveSection('auditLog')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='auditLog'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>سجل التغييرات والأنشطة</button>}
+            {showPermissions && <button onClick={() => setActiveSection('permissions')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='permissions'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>إدارة الصلاحيات</button>}
+            {user?.role === 'admin' && <button onClick={() => setActiveSection('sheetsDiagnostic')} className={`w-full text-right px-3 py-2 rounded ${activeSection==='sheetsDiagnostic'?'bg-blue-600 text-white':'hover:bg-gray-100'}`}>تشخيص Google Sheets</button>}
             <div className="pt-4 border-t" />
             <div className="flex gap-2">
               <button onClick={exportJSON} className="flex-1 bg-green-600 text-white py-2 rounded">تصدير JSON</button>
@@ -194,7 +261,7 @@ const EquipmentManagementSystem = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-4 bg-blue-50 rounded-lg">
                   <div className="text-sm text-gray-700">المشرفين</div>
-                  <div className="text-2xl font-bold">{supervisors.length}</div>
+                  <div className="text-2xl font-bold">{apiSupervisorsCount > 0 ? apiSupervisorsCount : supervisors.length}</div>
                 </div>
                 <div className="p-4 bg-green-50 rounded-lg">
                   <div className="text-sm text-gray-700">المناديب</div>
@@ -208,37 +275,37 @@ const EquipmentManagementSystem = () => {
             </div>
           )}
 
-          {activeSection === 'supervisors' && (
+          {activeSection === 'supervisors' && canView(user, 'supervisors') && (
             <div className="bg-white p-6 rounded-lg shadow-sm">
-              <h2 className="text-xl font-bold mb-4">إدارة المشرفين</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <input placeholder="كود" className="p-2 border rounded" value={supervisorForm.code} onChange={e=>setSupervisorForm({...supervisorForm, code:e.target.value})} />
-                <input placeholder="الاسم" className="p-2 border rounded" value={supervisorForm.name} onChange={e=>setSupervisorForm({...supervisorForm, name:e.target.value})} />
-                <input placeholder="المنطقة" className="p-2 border rounded" value={supervisorForm.region} onChange={e=>setSupervisorForm({...supervisorForm, region:e.target.value})} />
-              </div>
-              <div className="flex gap-2 mb-6">
-                <input placeholder="اسم المستخدم" className="p-2 border rounded" value={supervisorForm.username} onChange={e=>setSupervisorForm({...supervisorForm, username:e.target.value})} />
-                <input placeholder="كلمة المرور" className="p-2 border rounded" value={supervisorForm.password} onChange={e=>setSupervisorForm({...supervisorForm, password:e.target.value})} />
-                <button onClick={addSupervisor} className="bg-blue-600 text-white px-4 py-2 rounded">إضافة</button>
-              </div>
-
-              <div className="space-y-3">
-                {supervisors.map(s => (
-                  <div key={s.code} className="p-3 border rounded flex justify-between items-center">
-                    <div>
-                      <div className="font-bold">{s.name} <span className="text-sm text-gray-500">({s.code})</span></div>
-                      <div className="text-sm text-gray-600">{s.region}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={()=>removeSupervisor(s.code)} className="text-red-600">حذف</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <SupervisorRegistration onListChange={setApiSupervisorsCount} />
             </div>
           )}
 
-          {activeSection === 'riders' && (
+          {activeSection === 'equipmentDelivery' && canView(user, 'equipmentDelivery') && (
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <EquipmentDelivery />
+            </div>
+          )}
+
+          {activeSection === 'equipmentReturn' && canView(user, 'equipmentReturn') && (
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <EquipmentReturn />
+            </div>
+          )}
+
+          {activeSection === 'equipmentExchange' && canView(user, 'equipmentExchange') && (
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <EquipmentExchangeView />
+            </div>
+          )}
+
+          {activeSection === 'supervisorInventory' && canView(user, 'supervisorInventory') && (
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <SupervisorInventoryView user={user} />
+            </div>
+          )}
+
+          {activeSection === 'riders' && canView(user, 'riders') && (
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <h2 className="text-xl font-bold mb-4">إدارة المناديب</h2>
 
@@ -289,9 +356,15 @@ const EquipmentManagementSystem = () => {
             </div>
           )}
 
-          {activeSection === 'inventory' && (
+          {activeSection === 'zoneInventory' && canView(user, 'zoneInventory') && (
             <div className="bg-white p-6 rounded-lg shadow-sm">
-              <h2 className="text-xl font-bold mb-4">المخزون</h2>
+              <ZoneInventoryView />
+            </div>
+          )}
+
+          {activeSection === 'inventory' && canView(user, 'inventory') && (
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <h2 className="text-xl font-bold mb-4">المخزون الرئيسي</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div className="p-4 border rounded">
                   <div className="text-sm">حقائب دراجة نارية</div>
@@ -334,35 +407,57 @@ const EquipmentManagementSystem = () => {
             </div>
           )}
 
-          {activeSection === 'orders' && (
+          {activeSection === 'permissions' && showPermissions && (
             <div className="bg-white p-6 rounded-lg shadow-sm">
-              <h2 className="text-xl font-bold mb-4">الطلبات</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-4">
-                <select value={orderForm.supervisorCode} onChange={e=>setOrderForm({...orderForm, supervisorCode: e.target.value})} className="p-2 border rounded">
-                  <option value="">اختر مشرف</option>
-                  {supervisors.map(s => <option key={s.code} value={s.code}>{s.name} ({s.code})</option>)}
-                </select>
-                <input type="number" min={0} value={orderForm.motorcyclePouches} onChange={e=>setOrderForm({...orderForm, motorcyclePouches: Number(e.target.value)})} className="p-2 border rounded" placeholder="ح - دراجات" />
-                <input type="number" min={0} value={orderForm.bicyclePouches} onChange={e=>setOrderForm({...orderForm, bicyclePouches: Number(e.target.value)})} className="p-2 border rounded" placeholder="ح - هوائية" />
-                <input type="number" min={0} value={orderForm.tshirts} onChange={e=>setOrderForm({...orderForm, tshirts: Number(e.target.value)})} className="p-2 border rounded" placeholder="تيشيرت" />
-                <button onClick={requestOrder} className="bg-blue-600 text-white px-4 py-2 rounded col-span-4">إرسال طلب</button>
+              <h2 className="text-xl font-bold mb-4">إدارة الصلاحيات</h2>
+              <p className="text-gray-600 mb-4">هذه الصفحة للمسؤول فقط. يمكن لاحقاً إضافة واجهة منح/سحب الصلاحيات لكل دور ومستخدم.</p>
+              <div className="p-4 bg-slate-50 rounded-lg text-sm">
+                <div className="font-medium mb-2">الوحدات والصلاحيات الحالية (من الإعداد):</div>
+                <ul className="list-disc list-inside space-y-1 text-gray-700">
+                  {user?.permissions?.modules && Object.entries(user.permissions.modules).map(([name, perms]) => (
+                    <li key={name}>{name}: عرض {perms.view ? '✓' : '✗'}، إضافة {perms.add ? '✓' : '✗'}، تعديل {perms.edit ? '✓' : '✗'}</li>
+                  ))}
+                </ul>
               </div>
+            </div>
+          )}
 
-              <div className="space-y-3">
-                {orders.map(o => (
-                  <div key={o.id} className="p-3 border rounded flex justify-between items-center">
-                    <div>
-                      <div className="font-bold">طلب {o.id} - {o.supervisorCode || 'N/A'}</div>
-                      <div className="text-sm text-gray-600">حقيبة دراجات: {o.motorcyclePouches} • حقيبة هوائية: {o.bicyclePouches} • تيشيرت: {o.tshirts}</div>
-                      <div className="text-sm">الحالة: {o.status}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      {o.status === 'pending' && <button onClick={()=>approveOrder(o.id)} className="bg-green-600 text-white px-3 py-1 rounded">موافقة</button>}
-                      {o.status === 'pending' && <button onClick={()=>rejectOrder(o.id)} className="bg-red-600 text-white px-3 py-1 rounded">رفض</button>}
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {activeSection === 'orders' && canView(user, 'orders') && (
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <OrdersView />
+            </div>
+          )}
+
+          {activeSection === 'deductions' && canView(user, 'deductions') && (
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <DeductionsView />
+            </div>
+          )}
+
+          {activeSection === 'apartments' && canView(user, 'apartments') && (
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <ApartmentsView />
+            </div>
+          )}
+
+          {activeSection === 'motorcycles' && canView(user, 'motorcycles') && (
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <MotorcyclesView />
+            </div>
+          )}
+
+          {activeSection === 'incentives' && canView(user, 'incentives') && (
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <IncentivesView />
+            </div>
+          )}
+
+          {activeSection === 'sheetsDiagnostic' && user?.role === 'admin' && (
+            <GoogleSheetsDiagnostic />
+          )}
+          {activeSection === 'auditLog' && canView(user, 'auditLog') && (
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <AuditLogView />
             </div>
           )}
         </main>

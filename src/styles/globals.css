@@ -7,6 +7,11 @@ html {
   scroll-behavior: smooth;
 }
 
+/* تجنب الصفحة البيضاء - خلفية افتراضية حتى يحمّل React */
+#root {
+  min-height: 100vh;
+}
+
 /* Glass morphism effect */
 .glass {
   background: rgba(255, 255, 255, 0.8);

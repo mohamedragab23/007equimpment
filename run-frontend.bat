@@ -1,0 +1,6 @@
+@echo off
+chcp 65001 >nul
+cd /d "%~dp0"
+echo تشغيل الواجهة على http://localhost:5173 ...
+npm run dev
+pause
